@@ -2,7 +2,8 @@ using UnityEngine;
 
 public class Player2controller : MonoBehaviour
 {
-    public float minX = -5.0f;
+    // 移動制限の設定
+    public float minX = 0.0f; // 右側担当なので、中央(0)より左に行かないように制限
     public float maxX = 5.0f;
     public float minZ = -5.0f;
     public float maxZ = 5.0f;
@@ -16,7 +17,6 @@ public class Player2controller : MonoBehaviour
         rb = GetComponent<Rigidbody>();
         mainCamera = Camera.main;
         
-        // カメラ距離の計算（絶対値にしておく）
         cameraDistance = Mathf.Abs(mainCamera.transform.position.y - transform.position.y);
     }
 
@@ -24,10 +24,12 @@ public class Player2controller : MonoBehaviour
     {
         foreach (Touch touch in Input.touches)
         {
-            // Player2は「画面の上半分 (y >= Screen.height / 2)」のタッチだけを見る
-            if (touch.position.y >= Screen.height / 2)
+            // 【ここが変更点】
+            // タッチ位置のX座標が「画面幅の半分以上」＝「画面の右側」
+            if (touch.position.x >= Screen.width / 2)
             {
                 MoveToFinger(touch);
+                // Player2用の指が見つかったので抜ける
                 break;
             }
         }
@@ -40,7 +42,6 @@ public class Player2controller : MonoBehaviour
 
         worldPosition.y = transform.position.y;
 
-        // 移動制限
         worldPosition.x = Mathf.Clamp(worldPosition.x, minX, maxX);
         worldPosition.z = Mathf.Clamp(worldPosition.z, minZ, maxZ);
 
