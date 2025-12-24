@@ -2,57 +2,89 @@ using UnityEngine;
 
 public class Player1controller : MonoBehaviour
 {
-    // 移動制限の設定（必要に応じて調整してください）
     public float minX = -5.0f;
-    public float maxX = 0.0f; // 左側担当なので、中央(0)より右に行かないように制限すると良いかも
+    public float maxX = 0.0f; // 中央より右に行かない制限
     public float minZ = -5.0f;
     public float maxZ = 5.0f;
 
     private Rigidbody rb;
     private Camera mainCamera;
-    private float cameraDistance; // カメラとプレイヤーの距離
+    private float cameraDistance;
+
+    // 「自分の指」のIDを記憶する変数（-1は「指がない」という意味）
+    private int myFingerId = -1;
+    private Vector3 targetPosition; // 移動先の目標座標
 
     void Start()
     {
         rb = GetComponent<Rigidbody>();
         mainCamera = Camera.main;
-
-        // カメラからプレイヤーまでの「奥行き」距離を計算
-        // ※カメラが真上(Y軸方向)から見下ろしている前提の計算です
         cameraDistance = Mathf.Abs(mainCamera.transform.position.y - transform.position.y);
+        
+        // 初期位置を目標にしておく（変な飛び出し防止）
+        targetPosition = transform.position;
+    }
+
+    void Update()
+    {
+        // ■ 指を探す処理（毎フレーム実行）
+        if (myFingerId == -1)
+        {
+            // まだ指を捕まえていない時：新しくタッチされた指を探す
+            foreach (Touch touch in Input.touches)
+            {
+                // 「タッチ開始（Began）」かつ「画面の左側」なら自分の指と認定！
+                if (touch.phase == TouchPhase.Began && touch.position.x < Screen.width / 2)
+                {
+                    myFingerId = touch.fingerId; // IDを記憶（ロックオン！）
+                }
+            }
+        }
+        else
+        {
+            // すでに指を捕まえている時：記憶したIDの指だけを追う
+            bool fingerFound = false;
+            foreach (Touch touch in Input.touches)
+            {
+                if (touch.fingerId == myFingerId)
+                {
+                    fingerFound = true;
+                    
+                    // 指の位置を計算
+                    CalculateTargetPosition(touch);
+
+                    // 指が離されたら追跡終了
+                    if (touch.phase == TouchPhase.Ended || touch.phase == TouchPhase.Canceled)
+                    {
+                        myFingerId = -1;
+                    }
+                }
+            }
+            // もし何らかの理由で指が見失われたらリセット
+            if (!fingerFound) myFingerId = -1;
+        }
     }
 
     void FixedUpdate()
     {
-        // 画面に触れているすべての指をチェック
-        foreach (Touch touch in Input.touches)
+        // ■ 実際に動かす処理
+        if (myFingerId != -1)
         {
-            // 【ここが変更点】
-            // タッチ位置のX座標が「画面幅の半分より小さい」＝「画面の左側」
-            if (touch.position.x < Screen.width / 2)
-            {
-                MoveToFinger(touch);
-                // Player1用の指が見つかったので、他の指は無視してループを抜ける
-                break; 
-            }
+            rb.MovePosition(targetPosition);
         }
     }
 
-    // 指の位置に移動させる処理（ここは前回と同じ）
-    void MoveToFinger(Touch touch)
+    void CalculateTargetPosition(Touch touch)
     {
-        // タッチ座標(2D)をゲーム世界座標(3D)に変換
         Vector3 touchPosition = new Vector3(touch.position.x, touch.position.y, cameraDistance);
         Vector3 worldPosition = mainCamera.ScreenToWorldPoint(touchPosition);
 
-        // 高さは固定
         worldPosition.y = transform.position.y;
 
-        // 移動制限（Clamp）を適用
+        // パドル自体の移動制限（指がはみ出てもパドルはここで止まる）
         worldPosition.x = Mathf.Clamp(worldPosition.x, minX, maxX);
         worldPosition.z = Mathf.Clamp(worldPosition.z, minZ, maxZ);
 
-        // 物理演算を使って、その場所に移動
-        rb.MovePosition(worldPosition);
+        targetPosition = worldPosition;
     }
 }
