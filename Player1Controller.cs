@@ -2,9 +2,9 @@ using UnityEngine;
 
 public class Player1controller : MonoBehaviour
 {
-    // 移動制限の設定（前の設定を引き継ぎ）
+    // 移動制限の設定（必要に応じて調整してください）
     public float minX = -5.0f;
-    public float maxX = 5.0f;
+    public float maxX = 0.0f; // 左側担当なので、中央(0)より右に行かないように制限すると良いかも
     public float minZ = -5.0f;
     public float maxZ = 5.0f;
 
@@ -17,41 +17,42 @@ public class Player1controller : MonoBehaviour
         rb = GetComponent<Rigidbody>();
         mainCamera = Camera.main;
 
-        // カメラからプレイヤーまでの奥行き距離を計算（これをしないと座標がズレます）
-        // ※カメラがY軸方向にある前提です
-        cameraDistance = mainCamera.transform.position.y - transform.position.y;
+        // カメラからプレイヤーまでの「奥行き」距離を計算
+        // ※カメラが真上(Y軸方向)から見下ろしている前提の計算です
+        cameraDistance = Mathf.Abs(mainCamera.transform.position.y - transform.position.y);
     }
 
     void FixedUpdate()
     {
-        // 画面に触れている指の数だけループ処理
+        // 画面に触れているすべての指をチェック
         foreach (Touch touch in Input.touches)
         {
-            // Player1は「画面の下半分 (y < Screen.height / 2)」のタッチだけを見る
-            if (touch.position.y < Screen.height / 2)
+            // 【ここが変更点】
+            // タッチ位置のX座標が「画面幅の半分より小さい」＝「画面の左側」
+            if (touch.position.x < Screen.width / 2)
             {
                 MoveToFinger(touch);
-                // 1本の指に反応すれば十分なので、処理を抜ける（マルチタッチ誤作動防止）
+                // Player1用の指が見つかったので、他の指は無視してループを抜ける
                 break; 
             }
         }
     }
 
+    // 指の位置に移動させる処理（ここは前回と同じ）
     void MoveToFinger(Touch touch)
     {
-        // タッチした画面上の位置(X, Y)を、3D空間の座標(X, Y, Z)に変換
-        // Zには「カメラとの距離」を入れるのがコツです
+        // タッチ座標(2D)をゲーム世界座標(3D)に変換
         Vector3 touchPosition = new Vector3(touch.position.x, touch.position.y, cameraDistance);
         Vector3 worldPosition = mainCamera.ScreenToWorldPoint(touchPosition);
 
-        // 高さは固定（変な高さに行かないように）
+        // 高さは固定
         worldPosition.y = transform.position.y;
 
         // 移動制限（Clamp）を適用
         worldPosition.x = Mathf.Clamp(worldPosition.x, minX, maxX);
         worldPosition.z = Mathf.Clamp(worldPosition.z, minZ, maxZ);
 
-        // 物理演算を使って、その場所に瞬間移動
+        // 物理演算を使って、その場所に移動
         rb.MovePosition(worldPosition);
     }
 }
