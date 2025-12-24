@@ -2,31 +2,48 @@ using UnityEngine;
 
 public class Player2controller : MonoBehaviour
 {
-    public float speed = 20.0f; 
     public float minX = -5.0f;
     public float maxX = 5.0f;
     public float minZ = -5.0f;
     public float maxZ = 5.0f;
 
     private Rigidbody rb;
+    private Camera mainCamera;
+    private float cameraDistance;
 
     void Start()
     {
         rb = GetComponent<Rigidbody>();
+        mainCamera = Camera.main;
+        
+        // カメラ距離の計算（絶対値にしておく）
+        cameraDistance = Mathf.Abs(mainCamera.transform.position.y - transform.position.y);
     }
 
     void FixedUpdate()
     {
-        float horizontalInput = Input.GetKey(KeyCode.RightArrow) ? 1.0f : Input.GetKey(KeyCode.LeftArrow) ? -1.0f : 0.0f;
-        float verticalInput = Input.GetKey(KeyCode.UpArrow) ? 1.0f : Input.GetKey(KeyCode.DownArrow) ? -1.0f : 0.0f;
+        foreach (Touch touch in Input.touches)
+        {
+            // Player2は「画面の上半分 (y >= Screen.height / 2)」のタッチだけを見る
+            if (touch.position.y >= Screen.height / 2)
+            {
+                MoveToFinger(touch);
+                break;
+            }
+        }
+    }
 
-        Vector3 movement = new Vector3(horizontalInput, 0.0f, verticalInput) * speed * Time.fixedDeltaTime;
+    void MoveToFinger(Touch touch)
+    {
+        Vector3 touchPosition = new Vector3(touch.position.x, touch.position.y, cameraDistance);
+        Vector3 worldPosition = mainCamera.ScreenToWorldPoint(touchPosition);
 
-        Vector3 newPosition = rb.position + movement;
+        worldPosition.y = transform.position.y;
 
-        newPosition.x = Mathf.Clamp(newPosition.x, minX, maxX);
-        newPosition.z = Mathf.Clamp(newPosition.z, minZ, maxZ);
+        // 移動制限
+        worldPosition.x = Mathf.Clamp(worldPosition.x, minX, maxX);
+        worldPosition.z = Mathf.Clamp(worldPosition.z, minZ, maxZ);
 
-        rb.MovePosition(newPosition);
+        rb.MovePosition(worldPosition);
     }
 }
